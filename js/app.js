@@ -58,7 +58,7 @@
   /* ================= state ================= */
   let t = T0, cur = -1, raf = 0, playing = false, playEnd = 0, lastTs = 0;
   let SECS = 24; // seconds of play per chapter; the speed selector changes it
-  const story = { on: false, ch: 0, step: 0, steps: [], anim: 0, driving: false, focus: [] };   // story mode, see below
+  const story = { on: false, ch: 0, step: 0, steps: [], anim: 0, driving: false, focus: [], toc: false };   // story mode, see below
 
   function setTime(nt, opt = {}) {
     t = clamp(nt, T0, T1);
@@ -570,7 +570,7 @@
     document.addEventListener('keydown', e => {
       if (e.target.closest('input,textarea,select') || !$('#atlas').classList.contains('on') || !welcome.hidden) return;
       if (story.on) {
-        if (e.target.closest('button,a')) return;
+        if (e.target.closest('button,a') || story.toc) return;
         if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); storyNext(); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); storyBack(); }
         return;
@@ -625,7 +625,9 @@
   });
 
   /* ================= "meanwhile" timeline ================= */
-  const LW = 150, LANEC = { climate: '#5b8fa8', africa: '#b8742a', nile: '#c79a1c', mideast: '#3b6fb0', europe: '#7a52a8', sasia: '#1f8f83', easia: '#d0632a', oceania: '#1f9bb0', americas: '#5d8a2b' };
+  const LW = innerWidth < 600 ? 92 : 150;   // width of the row-name column (narrower on phones)
+  document.documentElement.style.setProperty('--lw', LW + 'px');
+  const LANEC = { climate: '#5b8fa8', africa: '#b8742a', nile: '#c79a1c', mideast: '#3b6fb0', europe: '#7a52a8', sasia: '#1f8f83', easia: '#d0632a', oceania: '#1f9bb0', americas: '#5d8a2b' };
   const tlOff = []; let tlTotal = 0, tlCursor, tlItems = [];
   CH.forEach(c => { tlOff.push(tlTotal); tlTotal += c.w; });
   const xOf = tt => { const i = chIndex(tt), c = CH[i]; return tlOff[i] + clamp((tt - c.t0) / (c.t1 - c.t0)) * c.w; };
@@ -690,10 +692,10 @@
   }
 
   /* ================= chain of causes ================= */
-  const CW = 178, czNodes = {}; let czDrawn = false, czSel = null, czPaths = [];
+  const PHONE = innerWidth < 600, CW = PHONE ? 158 : 178, czNodes = {}; let czDrawn = false, czSel = null, czPaths = [];
   function buildCauses() {
     const grid = $('#czGrid');
-    grid.style.gridTemplateColumns = `118px repeat(${NCH}, ${CW}px)`;
+    grid.style.gridTemplateColumns = `${PHONE ? 70 : 118}px repeat(${NCH}, ${CW}px)`;
     grid.appendChild(h('div', 'cz-corner'));
     CH.forEach((c, i) => { const d = h('div', 'cz-ch', `${i + 1} · ${c.short}<small>${fmtRange(c.t0, c.t1)}</small>`); d.title = T('openCh'); d.onclick = () => { showTab('atlas'); goChapter(i); }; grid.appendChild(d); });
     A.themes.forEach(([th, name]) => {
@@ -798,11 +800,22 @@
   }
   const picOf = s => (s && s.w && A.pics && A.pics[s.w] && A.pics[s.w].f) ? A.pics[s.w] : null;
 
+  // Chapters whose last step has been reached, remembered between visits.
+  const storyDone = () => { try { const a = JSON.parse(localStorage.getItem('atlas-story-done')); if (Array.isArray(a)) return a; } catch (e) { } return []; };
+  function storyMarkDone(ci) { const a = storyDone(); if (!a.includes(ci)) { a.push(ci); try { localStorage.setItem('atlas-story-done', JSON.stringify(a)); } catch (e) { } } }
+  // The chapter list: jump to any chapter of the story.
+  function storyToc() {
+    const done = storyDone();
+    return `<div class="sm-lbl">${T('smChapters')}</div><ol class="sm-toc">` + CH.map((c, i) =>
+      `<li><button data-sm="goch" data-c="${i}" class="${i === story.ch ? 'cur' : ''}${done.includes(i) ? ' done' : ''}"><b>${i + 1}</b>` +
+      `<span>${c.title}<small>${fmtRange(c.t0, c.t1)}${i === story.ch ? ' · ' + T('smHere') : ''}</small></span><i>${done.includes(i) ? '✓' : ''}</i></button></li>`).join('') + '</ol>';
+  }
   function storyRender() {
     const c = CH[story.ch], st = story.steps[story.step], el = $('#story');
     const lastStep = story.step === story.steps.length - 1, lastCh = story.ch === NCH - 1;
     let body = '';
-    if (st.k === 'intro') {
+    if (story.toc) body = storyToc();
+    else if (st.k === 'intro') {
       body = `<div class="sm-intro"><div class="sm-num">${story.ch + 1}</div><h2>${c.title}</h2><div class="sm-range">${fmtRange(c.t0, c.t1)}</div>` +
         `<div class="sm-lbl">${T('smIdea')}</div><p class="sm-idea">${c.idea}</p></div>`;
     } else if (st.k === 'scene') {
@@ -826,10 +839,11 @@
     }
     const next = lastStep ? (lastCh ? '' : `<button class="nx" data-sm="next"><small>${T('smNextCh')}</small>${CH[story.ch + 1].title}</button>`)
       : `<button class="nx" data-sm="next">${T(st.k === 'intro' ? 'smBegin' : 'smNext')}</button>`;
-    el.innerHTML = `<div class="sm-top"><span>${T('chOf', { n: story.ch + 1, m: NCH })} · ${c.short}</span><button class="linkish" data-sm="exit">${T('smExit')} ✕</button></div>` +
+    el.innerHTML = `<div class="sm-top"><span>${T('chOf', { n: story.ch + 1, m: NCH })} · ${c.short}</span><span class="sm-acts"><button class="linkish" data-sm="toc">☰ ${T('smChapters')}</button><button class="linkish" data-sm="exit">${T('smExit')} ✕</button></span></div>` +
       `<div class="sm-prog">${story.steps.map((_, i) => `<i class="${i < story.step ? 'done' : i === story.step ? 'cur' : ''}"></i>`).join('')}</div>` +
       `<div class="sm-body">${body}</div>` +
-      `<div class="s-nav sm-nav"><button data-sm="back"${story.ch === 0 && story.step === 0 ? ' disabled' : ''}>${T('smBack')}</button>${next}</div>`;
+      (story.toc ? `<div class="s-nav sm-nav"><button data-sm="toc">${T('smBackStory')}</button></div>`
+        : `<div class="s-nav sm-nav"><button data-sm="back"${story.ch === 0 && story.step === 0 ? ' disabled' : ''}>${T('smBack')}</button>${next}</div>`);
     el.scrollTop = 0;
   }
 
@@ -856,6 +870,8 @@
     if (ci !== story.ch || !story.steps.length) { story.ch = ci; story.steps = buildSteps(ci); }
     story.step = clamp(si < 0 ? story.steps.length + si : si, 0, story.steps.length - 1);
     const c = CH[ci], st = story.steps[story.step], span = c.t1 - c.t0;
+    story.toc = !!opt.toc;
+    if (st.k === 'end') storyMarkDone(ci);
     closePlace();
     let tt = null, view = c.view;
     if (st.k === 'intro') tt = c.t0 + span * 1e-4;
@@ -882,11 +898,11 @@
     } catch (e) { }
   }
   function storyBtn() { const b = $('#storyBtn'); b.textContent = T(story.on ? 'exploreBtn' : 'storyBtn'); b.classList.toggle('on', story.on); }
-  function storyStart(ci, si) {
+  function storyStart(ci, si, opt) {
     stop(); showTab('atlas');
     story.on = true; story.steps = []; storyUrl(true);
     document.body.classList.add('storymode'); $('#story').classList.add('sm');
-    storyBtn(); storyShow(ci, si || 0);
+    storyBtn(); storyShow(ci, si || 0, opt);
   }
   function storyExit() {
     story.on = false; story.anim++; setFocus(null); storyUrl(false);
@@ -902,7 +918,9 @@
   $('#story').addEventListener('click', e => {
     const b = e.target.closest('[data-sm]'); if (!b || !story.on) return;
     const a = b.dataset.sm, st = story.steps[story.step];
-    if (a === 'next') storyNext();
+    if (a === 'toc') { story.toc = !story.toc; storyRender(); }
+    else if (a === 'goch') { const p = storySaved(), ci = +b.dataset.c; storyShow(ci, ci === story.ch && p && p.ch === ci ? p.step : 0); }
+    else if (a === 'next') storyNext();
     else if (a === 'back') storyBack();
     else if (a === 'exit' || a === 'explore') storyExit();
     else if (a === 'chain') { storyExit(); showTab('causes'); }
@@ -942,6 +960,7 @@
   $('#helpBtn').onclick = showWelcome;
   $('#startBtn').onclick = () => { seenIt(); storyStart(0, 0); };
   $('#contBtn').onclick = () => { seenIt(); const p = storySaved() || { ch: 0, step: 0 }; storyStart(p.ch, p.step); };
+  $('#pickBtn').onclick = () => { seenIt(); const p = storySaved() || { ch: 0, step: 0 }; storyStart(p.ch, p.step, { toc: true }); };
   $('#exploreBtn').onclick = () => { seenIt(); if (story.on) storyExit(); showTab('atlas'); };
 
   // speed: seconds of play per chapter
@@ -967,8 +986,19 @@
   }
   else setTime(CH[0].t1 - (CH[0].t1 - CH[0].t0) * 0.02);
   // index.html?prica (or ?story) opens straight in story mode, where you left off
-  let wantStory = false; try { const q = new URLSearchParams(location.search); wantStory = q.has('prica') || q.has('story'); } catch (e) { }
-  if (wantStory && !story.on) { welcome.hidden = true; const p = storySaved() || { ch: 0, step: 0 }; storyStart(p.ch, p.step); }
+  // …and index.html?prica=10 (a chapter number, or its id such as ?prica=pyramids) opens that chapter.
+  let wantStory = false, wantCh = -1;
+  try {
+    const q = new URLSearchParams(location.search), v = q.get('prica') || q.get('story') || '';
+    wantStory = q.has('prica') || q.has('story');
+    wantCh = /^\d+$/.test(v) ? +v - 1 : CH.findIndex(c => c.id === v);
+    if (!(wantCh >= 0 && wantCh < NCH)) wantCh = -1;
+  } catch (e) { }
+  if (wantStory && (!story.on || wantCh >= 0)) {
+    welcome.hidden = true;
+    const p = storySaved() || { ch: 0, step: 0 };
+    if (wantCh >= 0) storyStart(wantCh, p.ch === wantCh ? p.step : 0); else storyStart(p.ch, p.step);
+  }
   window.ATLAS_APP = {
     setTime, goChapter, setView: (v) => setView(v, false), showTab, selectNode, openPlace, closePlace,
     storyStart, storyExit, storyNext, storyBack, get story() { return story.on; }, get storyPos() { return { ch: story.ch, step: story.step, steps: story.steps.map(s => s.k) }; },
