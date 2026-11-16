@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Ancient World — a connected atlas</title>
-<link rel="stylesheet" href="css/style.css?v=13">
+<link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
 <header class="top">
@@ -65,8 +65,10 @@
   <div class="cz-head">
     <h2 data-i18n="czTitle">The chain of causes</h2>
     <p data-i18n="czIntro">Every box is a big change. Arrows show what caused what. Time runs left to right. Click a box to trace everything that led to it and everything it led to.</p>
+    <p class="cz-intro-phone" data-i18n="czIntroPhone">Every line is a big change. Tap one to see what caused it and what it led to. Then keep tapping to follow the chain.</p>
   </div>
   <div class="cz-wrap">
+    <div class="cz-list" id="czList"></div>
     <div class="cz-scroll" id="czScroll"><div class="cz-grid" id="czGrid"></div></div>
     <aside class="cz-info" id="czInfo"></aside>
   </div>
@@ -93,20 +95,20 @@
   </div>
 </div>
 
-<!-- When any js/ or css/ file changes, raise the ?v=13 number on these links so browsers do not show a stale copy. -->
+<!-- When any js/ or css/ file changes, raise the ?v=14 number on these links so browsers do not show a stale copy. -->
 <script src="vendor/d3.min.js"></script>
 <script src="vendor/topojson-client.min.js"></script>
 <script src="vendor/land-50m.js"></script>
-<script src="js/data-chapters.js?v=13"></script>
-<script src="js/data-causes.js?v=13"></script>
-<script src="js/data-map.js?v=13"></script>
-<script src="js/data-timeline.js?v=13"></script>
-<script src="js/data-wiki.js?v=13"></script>
-<script src="js/data-pics.js?v=13"></script>
-<script src="js/data-story.js?v=13"></script>
-<script src="js/data-quiz.js?v=13"></script>
-<script src="js/lang-hr.js?v=13"></script>
-<script src="js/i18n.js?v=13"></script>
-<script src="js/app.js?v=13"></script>
+<script src="js/data-chapters.js?v=14"></script>
+<script src="js/data-causes.js?v=14"></script>
+<script src="js/data-map.js?v=14"></script>
+<script src="js/data-timeline.js?v=14"></script>
+<script src="js/data-wiki.js?v=14"></script>
+<script src="js/data-pics.js?v=14"></script>
+<script src="js/data-story.js?v=14"></script>
+<script src="js/data-quiz.js?v=14"></script>
+<script src="js/lang-hr.js?v=14"></script>
+<script src="js/i18n.js?v=14"></script>
+<script src="js/app.js?v=14"></script>
 </body>
 </html>

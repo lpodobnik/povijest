@@ -692,10 +692,10 @@
   }
 
   /* ================= chain of causes ================= */
-  const PHONE = innerWidth < 600, CW = PHONE ? 158 : 178, czNodes = {}; let czDrawn = false, czSel = null, czPaths = [];
+  const CW = 178, czNodes = {}, czRows = {}, czPhone = matchMedia('(max-width: 600px)'); let czDrawn = false, czSel = null, czLast = null, czPaths = [];
   function buildCauses() {
     const grid = $('#czGrid');
-    grid.style.gridTemplateColumns = `${PHONE ? 70 : 118}px repeat(${NCH}, ${CW}px)`;
+    grid.style.gridTemplateColumns = `118px repeat(${NCH}, ${CW}px)`;
     grid.appendChild(h('div', 'cz-corner'));
     CH.forEach((c, i) => { const d = h('div', 'cz-ch', `${i + 1} · ${c.short}<small>${fmtRange(c.t0, c.t1)}</small>`); d.title = T('openCh'); d.onclick = () => { showTab('atlas'); goChapter(i); }; grid.appendChild(d); });
     A.themes.forEach(([th, name]) => {
@@ -711,10 +711,19 @@
       }
     });
     grid.addEventListener('click', () => selectNode(null));
+    // Phones get a list instead of the grid (see style.css): chapters top to bottom; tap a change to see
+    // its causes and effects, then tap those to follow the chain.
+    const list = $('#czList');
+    list.innerHTML = `<div class="czl-key">${A.themes.map(([th, name]) => `<span data-th="${th}">${name}</span>`).join('')}</div>` +
+      CH.map((c, i) => `<section><h3><b>${i + 1}</b>${c.title}<small>${fmtRange(c.t0, c.t1)}</small></h3>` +
+        A.nodes.filter(n => n.ch === i).map(n => `<button class="czl-node" data-n="${n.id}" data-th="${n.th}"><span>${n.title}</span></button>`).join('') + '</section>').join('');
+    list.querySelectorAll('.czl-node').forEach(b => { czRows[b.dataset.n] = b; });
+    list.addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (b) selectNode(b.dataset.n, true); });
     selectNode(null);
   }
   function drawLinks() {
     const grid = $('#czGrid');
+    if (!grid.offsetParent) return;   // the grid is hidden on phones
     let s = grid.querySelector('svg'); if (s) s.remove();
     s = sv('svg', { width: grid.scrollWidth, height: grid.scrollHeight });
     const defs = sv('defs', {}, s), mk = (id, col) => { const m = sv('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto' }, defs); sv('path', { d: 'M0,1 L10,5 L0,9 z', fill: col }, m); };
@@ -754,7 +763,11 @@
   }
   function selectNode(id, scroll) {
     czSel = id; paintSel();
-    const info = $('#czInfo');
+    const info = $('#czInfo'), view = $('#causes'), phone = czPhone.matches && view.classList.contains('on');
+    view.classList.toggle('cz-open', !!id);
+    for (const k in czRows) czRows[k].classList.toggle('last', !id && k === czLast);
+    if (phone) { if (id) scrollTo(0, 0); else if (czLast) czRows[czLast].scrollIntoView({ block: 'center' }); }
+    if (id) czLast = id;
     if (!id) {
       info.innerHTML = `<h3>${T('howRead')}</h3><p>${T('howReadP')}</p>
         <h4>${T('tryFrom')}</h4><div class="starts">${['pyramids', 'cities', 'farming', 'bacollapse', 'democracy', 'silkroad', 'fallwest', 'legacy'].map(k => `<button class="chip" data-n="${k}">${nodeById[k].title}</button>`).join('')}</div>`;
@@ -762,10 +775,10 @@
     }
     const n = nodeById[id];
     const rel = (l, o, dir) => `<div class="rel" data-n="${o.id}"><b>${dir === 'in' ? '← ' : ''}${o.title}${dir === 'out' ? ' →' : ''}</b>${l.why} <small>${T('chParen', { n: o.ch + 1 })}</small></div>`;
-    info.innerHTML = `<h3>${n.title}</h3><p>${n.text}<br><button class="linkish" data-ch="${n.ch}">${T('chLink', { n: n.ch + 1, title: CH[n.ch].title })}</button></p>` +
+    info.innerHTML = `<button class="czl-back" data-n="">← ${T('czAll')}</button><div class="czl-tag" data-th="${n.th}">${A.themes.find(x => x[0] === n.th)[1]}</div><h3>${n.title}</h3><p>${n.text}<br><button class="linkish" data-ch="${n.ch}">${T('chLink', { n: n.ch + 1, title: CH[n.ch].title })}</button></p>` +
       (inL[id].length ? `<h4>${T('becauseOf')}</h4>${inL[id].map(l => rel(l, nodeById[l.from], 'in')).join('')}` : `<h4>${T('becauseOf')}</h4><p>${T('startPoint')}</p>`) +
       (outL[id].length ? `<h4>${T('whichLed')}</h4>${outL[id].map(l => rel(l, nodeById[l.to], 'out')).join('')}` : '') +
-      `<p style="margin-top:14px"><button class="linkish" data-n="">${T('clear')}</button></p>`;
+      `<p class="cz-clear" style="margin-top:14px"><button class="linkish" data-n="">${T('clear')}</button></p>`;
     if (scroll) { const b = czNodes[id], sc = $('#czScroll'); sc.scrollLeft = b.offsetLeft - sc.clientWidth / 2; sc.scrollTop = b.offsetTop - sc.clientHeight / 2; }
   }
   $('#czInfo').addEventListener('click', e => {
